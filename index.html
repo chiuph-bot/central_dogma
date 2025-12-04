@@ -1,0 +1,762 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Play, Pause, RotateCcw, Dna, Smartphone, Tablet, Monitor, CheckCircle, ArrowDown } from 'lucide-react';
+
+// --- Constants & Types ---
+
+const BASES = ['A', 'T', 'C', 'G'];
+const BASE_COLORS = {
+  A: '#4ade80', // Green
+  T: '#f87171', // Red
+  C: '#60a5fa', // Blue
+  G: '#facc15', // Yellow
+  U: '#fb923c', // Orange
+};
+
+const BASE_DEFAULTS = {
+  width: 60,
+  height: 100
+};
+
+// Fixed widths for layout alignment
+const LABEL_WIDTH_PX = 80; // Width of the "3' / 5'" text labels
+const PADDING_PX = 40;     // px-10 = 40px
+
+// --- Helper Functions ---
+
+const getComplement = (base, isRNA = false) => {
+  if (base === 'A') return isRNA ? 'U' : 'T';
+  if (base === 'T') return 'A';
+  if (base === 'C') return 'G';
+  if (base === 'G') return 'C';
+  return '';
+};
+
+// --- Components ---
+
+// 1. RNAPolymerase Component
+const RNAPolymerase = ({ width, height }) => {
+  return (
+    <svg 
+      width={width} 
+      height={height} 
+      viewBox="0 0 300 260" 
+      style={{ overflow: 'visible' }}
+    >
+      <defs>
+        <linearGradient id="polyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#93c5fd" stopOpacity="0.7" />
+          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.5" />
+        </linearGradient>
+        <linearGradient id="clampGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#bfdbfe" stopOpacity="0.8" />
+          <stop offset="100%" stopColor="#60a5fa" stopOpacity="0.7" />
+        </linearGradient>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+          <feMerge>
+            <feMergeNode in="coloredBlur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+      
+      <g filter="url(#glow)">
+        {/* Main Body (First Bigger Domain) - Positioned Above */}
+        <path
+          d="M 20,140 
+             Q 20,40 100,20 
+             Q 180,0 260,20 
+             Q 300,40 290,120 
+             Q 280,160 200,150 
+             Q 120,140 20,140 Z"
+          fill="url(#polyGrad)"
+          stroke="#2563eb"
+          strokeWidth="2"
+          opacity="0.9"
+        />
+        
+        {/* Internal Contours for Big Domain */}
+        <path 
+          d="M 100,40 Q 180,60 240,40" 
+          fill="none" 
+          stroke="white" 
+          strokeWidth="3" 
+          opacity="0.3" 
+          strokeLinecap="round"
+        />
+
+        {/* Secondary Domain (Smaller Domain) - Positioned Below */}
+        <path 
+          d="M 60,190 
+             Q 80,180 160,180 
+             Q 240,180 230,220 
+             Q 220,250 140,250 
+             Q 60,250 60,190 Z"
+          fill="url(#clampGrad)"
+          stroke="#1d4ed8"
+          strokeWidth="2"
+          opacity="0.85"
+        />
+        
+        {/* Active Site Channel indication (The gap between domains) */}
+        <ellipse cx="150" cy="165" rx="100" ry="20" fill="#ffffff" fillOpacity="0.05" />
+      </g>
+      
+      <text x="150" y="30" textAnchor="middle" fill="#1e40af" fontSize="16" fontWeight="bold" style={{ textShadow: '0px 0px 4px white' }}>RNA Polymerase (RNA 聚合酶)</text>
+    </svg>
+  );
+};
+
+// 2. Chemical Structure Component (SVG)
+const Nucleotide = ({ base, orientation = 'up', highlight = false, ghost = false, scale = 1, type = 'DNA' }) => {
+  const isUp = orientation === 'up';
+  
+  const baseWidth = BASE_DEFAULTS.width;
+  const baseHeight = BASE_DEFAULTS.height;
+  
+  const width = baseWidth * scale;
+  const height = baseHeight * scale;
+  
+  const opacity = ghost ? 0.3 : 1;
+  const strokeColor = '#000000'; 
+  const strokeWidth = highlight ? 3 : 1.5;
+
+  const isPurine = ['A', 'G'].includes(base);
+  const baseCenterY = isUp ? 62 : 37;
+  const baseCenterX = baseWidth / 2;
+
+  const phosphateX = 10;
+  const backBoneY = isUp ? 38 : 65; 
+
+  return (
+    <div 
+      className={`flex flex-col items-center justify-center transition-all duration-500 relative ${highlight ? 'z-10' : ''}`} 
+      style={{ 
+        width, 
+        height, 
+        opacity,
+        transform: highlight ? 'scale(1.1)' : 'scale(1)', 
+      }}
+    >
+      <svg width={width} height={height} viewBox={`0 0 ${baseWidth} ${baseHeight}`}>
+        
+        {/* Backbone Connections */}
+        {isUp ? (
+          <>
+            <line x1="0" y1={backBoneY} x2={phosphateX} y2={35} stroke={strokeColor} strokeWidth="1.5" />
+            <line x1="42" y1={40} x2={baseWidth} y2={backBoneY} stroke={strokeColor} strokeWidth="1.5" />
+          </>
+        ) : (
+          <>
+             <line x1={baseWidth} y1={backBoneY} x2="42" y2={65} stroke={strokeColor} strokeWidth="1.5" />
+             <line x1={phosphateX} y1={65} x2="0" y2={backBoneY} stroke={strokeColor} strokeWidth="1.5" />
+          </>
+        )}
+
+        {/* Sugar to Base */}
+        <line x1={baseWidth/2} y1={isUp ? 20 : 80} x2={baseWidth/2} y2={isUp ? 50 : 50} stroke={strokeColor} strokeWidth="2" />
+        
+        {/* Phosphate */}
+        <circle 
+          cx={phosphateX} 
+          cy={isUp ? 35 : 65} 
+          r="8" 
+          fill="#fcd34d" 
+          stroke={strokeColor} 
+          strokeWidth="1.5"
+        />
+        <text x={phosphateX} y={isUp ? 39 : 69} fontSize="10" textAnchor="middle" fill="#000" fontWeight="bold">P</text>
+
+        {/* Sugar */}
+        <path
+          d={isUp 
+            ? `M${baseWidth/2},20 L${baseWidth/2 + 15},30 L${baseWidth/2 + 10},50 L${baseWidth/2 - 10},50 L${baseWidth/2 - 15},30 Z`
+            : `M${baseWidth/2},80 L${baseWidth/2 + 15},70 L${baseWidth/2 + 10},50 L${baseWidth/2 - 10},50 L${baseWidth/2 - 15},70 Z`
+          }
+          fill="#f3f4f6"
+          stroke={strokeColor}
+          strokeWidth="1.5"
+        />
+        <text x={baseWidth/2} y={isUp ? 42 : 67} fontSize="8" textAnchor="middle" fill="#000">S</text>
+
+        {/* Base */}
+        {isPurine ? (
+          <g transform={`translate(${baseCenterX}, ${baseCenterY})`}>
+            <path
+              d="M-8,-10 L2,-10 L7,0 L2,10 L-8,10 L-13,0 Z"
+              fill={BASE_COLORS[base]}
+              stroke={strokeColor}
+              strokeWidth={strokeWidth}
+            />
+            <path
+              d="M2,-10 L10,-6 L10,6 L2,10 Z"
+              fill={BASE_COLORS[base]}
+              stroke={strokeColor}
+              strokeWidth={strokeWidth}
+            />
+          </g>
+        ) : (
+          <g transform={`translate(${baseCenterX}, ${baseCenterY})`}>
+            <path
+              d="M-9,-12 L9,-12 L14,0 L9,12 L-9,12 L-14,0 Z"
+              fill={BASE_COLORS[base]}
+              stroke={strokeColor}
+              strokeWidth={strokeWidth}
+            />
+          </g>
+        )}
+
+        <text 
+          x={baseWidth/2} 
+          y={isUp ? 67 : 42} 
+          fontSize="14" 
+          fontWeight="bold" 
+          textAnchor="middle" 
+          fill="#000"
+          style={{ pointerEvents: 'none' }}
+        >
+          {base}
+        </text>
+      </svg>
+    </div>
+  );
+};
+
+// 3. Connector Line Component
+const Connector = ({ orientation = 'up', scale = 1, isVisible = true }) => {
+  if (!isVisible) return <div style={{ width: 10 * scale }} />; 
+
+  const isUp = orientation === 'up';
+  const width = 10 * scale; 
+  const topPos = isUp ? '38%' : '65%';
+  
+  return (
+    <div 
+      className="relative transition-all duration-500"
+      style={{ 
+        width: width, 
+        height: 100 * scale, 
+        opacity: isVisible ? 1 : 0
+      }}
+    >
+       <div 
+         className="absolute bg-black" 
+         style={{
+           width: '100%',
+           height: '2px', 
+           top: topPos,
+           left: 0,
+           transform: 'translateY(-50%)'
+         }}
+       ></div>
+    </div>
+  );
+};
+
+// 4. Main App Component
+const TranscriptionGame = () => {
+  const [inputSequence, setInputSequence] = useState('CCG');
+  const [fullCodingSeq, setFullCodingSeq] = useState(['A', 'T', 'G', 'C', 'C', 'G']);
+  const [templateSeq, setTemplateSeq] = useState([]);
+  const [mrnaSeq, setMrnaSeq] = useState([]);
+  const [stage, setStage] = useState('input');
+  const [polymeraseIndex, setPolymeraseIndex] = useState(-1);
+  const [isPaused, setIsPaused] = useState(false); // New Pause State
+  const scrollRef = useRef(null);
+
+  // Device / Scale State
+  const [deviceType, setDeviceType] = useState('Desktop'); 
+  const [scale, setScale] = useState(1);
+
+  // Initialize Template based on Coding
+  useEffect(() => {
+    const full = ['A', 'T', 'G', ...inputSequence.split('')];
+    setFullCodingSeq(full);
+    setTemplateSeq(full.map(b => getComplement(b)));
+  }, [inputSequence]);
+
+  // Handle Responsive Scaling on Load & Resize
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      if (width < 640) { // iPhone / Small Mobile
+        setDeviceType('Mobile');
+        setScale(0.6); // 60% size
+      } else if (width < 1024) { // iPad / Tablet
+        setDeviceType('Tablet');
+        setScale(0.8); // 80% size
+      } else { // Desktop
+        setDeviceType('Desktop');
+        setScale(1.0); // 100% size
+      }
+    };
+
+    handleResize(); // Run on mount
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Manual Device Override
+  const handleDeviceChange = (type) => {
+    setDeviceType(type);
+    if (type === 'Mobile') setScale(0.6);
+    if (type === 'Tablet') setScale(0.8);
+    if (type === 'Desktop') setScale(1.0);
+  };
+
+  // Handle Text Input
+  const handleInputChange = (e) => {
+    const val = e.target.value.toUpperCase();
+    if (/^[ATCG]*$/.test(val) && val.length <= 15) {
+      setInputSequence(val);
+    }
+  };
+
+  // Animation Loop
+  useEffect(() => {
+    let timeout;
+    const baseWidth = BASE_DEFAULTS.width * scale;
+    const connectorWidth = 10 * scale;
+
+    if (isPaused) return; // Halt animation loop if paused
+
+    if (stage === 'unwinding') {
+      timeout = setTimeout(() => {
+        setStage('transcribing');
+        setPolymeraseIndex(0);
+      }, 1500);
+    }
+
+    if (stage === 'transcribing') {
+      if (polymeraseIndex < fullCodingSeq.length) {
+        timeout = setTimeout(() => {
+          const templateBase = templateSeq[polymeraseIndex];
+          const mrnaBase = getComplement(templateBase, true);
+          
+          setMrnaSeq(prev => [...prev, mrnaBase]);
+          setPolymeraseIndex(prev => prev + 1);
+          
+          if (scrollRef.current) {
+            scrollRef.current.scrollLeft += (baseWidth + connectorWidth);
+          }
+        }, 1200); 
+      } else {
+        setStage('finished');
+      }
+    }
+
+    return () => clearTimeout(timeout);
+  }, [stage, polymeraseIndex, fullCodingSeq, templateSeq, scale, isPaused]);
+
+  const startSimulation = () => {
+    setMrnaSeq([]);
+    setStage('unwinding');
+    setPolymeraseIndex(-1);
+    setIsPaused(false);
+  };
+
+  const resetSimulation = () => {
+    setMrnaSeq([]);
+    setStage('input');
+    setPolymeraseIndex(-1);
+    setIsPaused(false);
+  };
+
+  const togglePause = () => {
+    setIsPaused(!isPaused);
+  };
+
+  // Status Text Helper
+  const getStatusText = (s) => {
+    if (isPaused) return 'Paused (暫停)';
+    switch(s) {
+      case 'input': return 'DNA Helix (DNA 雙螺旋)';
+      case 'unwinding': return 'Unwinding (解旋中)';
+      case 'transcribing': return 'Transcribing (轉錄中)';
+      case 'finished': return 'Finished (完成)';
+      default: return s;
+    }
+  };
+
+  // Calculate layout dimensions based on current scale
+  const scaledBaseWidth = BASE_DEFAULTS.width * scale;
+  const scaledConnectorWidth = 10 * scale;
+  const scaledGapHeight = 20 * scale; // Tighter gap (20px)
+  const polymeraseSize = 240 * scale; 
+  
+  // Calculate exact left offset for mRNA to align with Template 3'
+  // Padding + Label Width
+  const containerLeftOffset = PADDING_PX + (LABEL_WIDTH_PX * scale);
+
+  return (
+    <div className="min-h-screen bg-white text-slate-900 p-2 sm:p-4 font-sans flex flex-col items-center">
+      
+      {/* Header with Device Selector */}
+      <header className="w-full max-w-5xl flex flex-col sm:flex-row justify-between items-center mb-6 border-b border-gray-200 pb-4 gap-4">
+        <div className="flex items-center gap-2">
+          <Dna className="text-blue-600 w-8 h-8" />
+          <div className="text-center sm:text-left">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Transcription Simulator</h1>
+            <h2 className="text-sm sm:text-base text-slate-500">轉錄模擬器</h2>
+          </div>
+        </div>
+        
+        {/* Device Toggle / Scale Control */}
+        <div className="flex items-center bg-gray-100 rounded-lg p-1 border border-gray-300">
+          <button 
+            onClick={() => handleDeviceChange('Mobile')}
+            className={`p-2 rounded flex items-center gap-1 text-xs sm:text-sm transition-colors ${deviceType === 'Mobile' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:text-slate-900'}`}
+          >
+            <Smartphone size={16} /> <span className="hidden sm:inline">Mobile</span>
+          </button>
+          <button 
+            onClick={() => handleDeviceChange('Tablet')}
+            className={`p-2 rounded flex items-center gap-1 text-xs sm:text-sm transition-colors ${deviceType === 'Tablet' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:text-slate-900'}`}
+          >
+            <Tablet size={16} /> <span className="hidden sm:inline">Tablet</span>
+          </button>
+          <button 
+            onClick={() => handleDeviceChange('Desktop')}
+            className={`p-2 rounded flex items-center gap-1 text-xs sm:text-sm transition-colors ${deviceType === 'Desktop' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:text-slate-900'}`}
+          >
+            <Monitor size={16} /> <span className="hidden sm:inline">Desktop</span>
+          </button>
+        </div>
+      </header>
+
+      {/* Legend */}
+      <div className="flex flex-wrap justify-center gap-3 sm:gap-4 text-xs sm:text-sm text-slate-600 mb-6 w-full max-w-5xl bg-gray-50 p-3 rounded-lg border border-gray-200">
+        <span className="flex items-center gap-1"><span className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-green-400 border border-green-500"></span> A: Adenine 腺嘌呤 (Double)</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-red-400 border border-red-500"></span> T: Thymine 胸腺嘧啶 (Single)</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-blue-400 border border-blue-500"></span> C: Cytosine 胞嘧啶 (Single)</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-yellow-400 border border-yellow-500"></span> G: Guanine 鳥嘌呤 (Double)</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-orange-400 border border-orange-500"></span> U: Uracil 尿嘧啶 (Single)</span>
+      </div>
+
+      {/* Input Section */}
+      <div className={`bg-gray-50 border border-gray-200 p-4 sm:p-6 rounded-xl shadow-sm w-full max-w-4xl mb-8 transition-opacity duration-300 ${stage !== 'input' ? 'opacity-50 pointer-events-none' : ''}`}>
+        <h2 className="text-lg font-semibold mb-2 flex items-center gap-2 text-slate-800">
+          1. Configure Coding Strand (設定編碼鏈)
+        </h2>
+        <p className="text-sm text-slate-500 mb-4">
+          Enter DNA sequence after ATG (輸入 ATG 之後的 DNA 序列).
+        </p>
+        
+        <div className="flex flex-col sm:flex-row items-center gap-2">
+          <div className="flex items-center bg-white rounded-lg overflow-hidden border border-gray-300 w-full sm:w-auto shadow-inner">
+            <span className="bg-gray-200 px-2 sm:px-3 py-2 text-slate-700 font-mono font-bold border-r border-gray-300 select-none text-sm sm:text-base">
+              5'-ATG
+            </span>
+            <input 
+              type="text" 
+              value={inputSequence}
+              onChange={handleInputChange}
+              placeholder="SEQ..."
+              className="bg-transparent border-none outline-none text-slate-900 px-3 py-2 font-mono uppercase w-full sm:w-48 tracking-widest placeholder-gray-400"
+              maxLength={15}
+            />
+            <span className="bg-gray-200 px-2 sm:px-3 py-2 text-slate-700 font-mono font-bold border-l border-gray-300 select-none text-sm sm:text-base">
+              -3'
+            </span>
+          </div>
+          
+          <button 
+            onClick={startSimulation}
+            disabled={inputSequence.length === 0}
+            className="w-full sm:w-auto flex justify-center items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg font-semibold transition-colors shadow-sm"
+          >
+            <Play size={18} /> 
+            <div className="flex flex-col leading-none text-left">
+              <span className="text-sm font-bold">Transcribe</span>
+              <span className="text-xs opacity-80 font-normal">轉錄</span>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Simulation Area */}
+      <div className="relative w-full max-w-6xl bg-white rounded-xl border border-gray-300 p-4 sm:p-8 shadow-xl overflow-hidden min-h-[500px] sm:min-h-[500px]">
+        
+        {/* Status Label */}
+        <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs sm:text-sm font-medium border border-gray-300 z-10 shadow-sm flex items-center gap-2">
+          <span>Status (狀態): <span className="text-blue-600 uppercase font-bold">{getStatusText(stage)}</span></span>
+        </div>
+
+        {/* Controls (Reset & Pause) */}
+        {stage !== 'input' && stage !== 'finished' && (
+          <div className="absolute top-4 right-4 flex gap-2 z-50">
+             <button 
+              onClick={togglePause}
+              className="bg-gray-100 hover:bg-gray-200 border border-gray-300 p-2 rounded-full transition-colors text-slate-600"
+              title={isPaused ? "Resume" : "Pause"}
+            >
+              {isPaused ? <Play size={18} /> : <Pause size={18} />}
+            </button>
+            <button 
+              onClick={resetSimulation}
+              className="bg-gray-100 hover:bg-gray-200 border border-gray-300 p-2 rounded-full transition-colors text-slate-600"
+              title="Reset"
+            >
+              <RotateCcw size={18} />
+            </button>
+          </div>
+        )}
+        
+        {/* Only show Reset in finished state */}
+        {stage === 'finished' && (
+           <button 
+              onClick={resetSimulation}
+              className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 border border-gray-300 p-2 rounded-full transition-colors z-50 text-slate-600"
+              title="Reset"
+            >
+              <RotateCcw size={18} />
+            </button>
+        )}
+
+        <div className="overflow-x-auto pb-4 custom-scrollbar" ref={scrollRef}>
+          {/* Increased top padding to 140px to push DNA strands down, making room for top overlay */}
+          <div className="min-w-max px-10 relative" style={{ paddingTop: '140px', paddingBottom: '20px' }}>
+            
+            {/* Hydrogen Bond Label (Visible only at start) */}
+            {stage === 'input' && (
+              <div 
+                className="absolute z-20 pointer-events-none animate-bounce"
+                style={{
+                  left: containerLeftOffset + (scaledBaseWidth/2),
+                  top: '160px' // Adjusted for new padding
+                }}
+              >
+              </div>
+            )}
+
+            {/* 1. CODING STRAND (TOP) */}
+            <div 
+              className={`flex items-end mb-2 transition-transform duration-1000 ease-in-out`}
+              style={{
+                transform: (stage === 'unwinding' || stage === 'transcribing' || stage === 'finished') 
+                  ? `translateY(-${100 * scale}px)`  // Increased upward separation to 100px
+                  : 'translateY(0)',
+                opacity: (stage === 'unwinding' || stage === 'transcribing' || stage === 'finished') ? 0.6 : 1
+              }}
+            >
+              <div 
+                className="text-slate-600 font-mono self-center text-sm font-bold flex-shrink-0 text-right pr-4"
+                style={{ width: LABEL_WIDTH_PX * scale }}
+              >
+                5'
+              </div>
+              {fullCodingSeq.map((base, i) => (
+                <React.Fragment key={`coding-group-${i}`}>
+                   {i > 0 && <Connector orientation="up" scale={scale} />}
+                   <Nucleotide key={`coding-${i}`} base={base} orientation="up" scale={scale} />
+                </React.Fragment>
+              ))}
+              <div className="ml-4 text-slate-600 font-mono self-center text-sm flex flex-col leading-tight">
+                <span className="font-bold">3' Coding</span>
+                <span className="text-xs opacity-75">(編碼鏈)</span>
+              </div>
+            </div>
+
+            {/* HYDROGEN BONDS / GAP */}
+            <div 
+              className={`flex items-center transition-all duration-1000 ease-in-out`}
+              style={{
+                height: (stage === 'unwinding' || stage === 'transcribing' || stage === 'finished') 
+                  ? `${scaledGapHeight * 5}px` // Increased Gap to accommodate separation
+                  : `${scaledGapHeight}px`,
+                // Disappear completely when unwinding
+                opacity: (stage === 'unwinding' || stage === 'transcribing' || stage === 'finished') ? 0 : 1
+              }}
+            >
+               <div style={{ width: LABEL_WIDTH_PX * scale }}></div> 
+              {fullCodingSeq.map((_, i) => (
+                <React.Fragment key={`bond-group-${i}`}>
+                  {i > 0 && <div style={{ width: scaledConnectorWidth }} />}
+                  <div className="flex justify-center" style={{ width: scaledBaseWidth }}>
+                    {/* Dotted Line representing Hydrogen Bond */}
+                    <div className="h-full w-0 border-l-2 border-dotted border-black"></div>
+                  </div>
+                </React.Fragment>
+              ))}
+            </div>
+
+            {/* 2. TEMPLATE STRAND (BOTTOM) */}
+            <div 
+              className={`flex items-start mt-2 transition-transform duration-1000 ease-in-out relative z-20`}
+              style={{
+                transform: (stage === 'unwinding' || stage === 'transcribing' || stage === 'finished') 
+                  ? `translateY(${15 * scale}px)` // Reduced downward movement to 15px
+                  : 'translateY(0)'
+              }}
+            >
+              <div 
+                className="text-slate-600 font-mono self-center text-sm font-bold flex-shrink-0 text-right pr-4"
+                style={{ width: LABEL_WIDTH_PX * scale }}
+              >
+                3'
+              </div>
+              {templateSeq.map((base, i) => (
+                <React.Fragment key={`template-group-${i}`}>
+                   {i > 0 && <Connector orientation="down" scale={scale} />}
+                   <div key={`template-${i}`} className="relative">
+                      {i === polymeraseIndex && (
+                        <div className="absolute inset-0 bg-yellow-200/50 rounded-lg animate-pulse z-0 transform scale-110 border border-yellow-400"></div>
+                      )}
+                      <Nucleotide 
+                        base={base} 
+                        orientation="down" 
+                        highlight={i === polymeraseIndex}
+                        scale={scale}
+                      />
+                   </div>
+                </React.Fragment>
+              ))}
+              <div className="ml-4 text-slate-600 font-mono self-center text-sm flex flex-col leading-tight">
+                <span className="font-bold">5' Template</span>
+                <span className="text-xs opacity-75">(模板鏈)</span>
+              </div>
+            </div>
+
+            {/* 3. RNA POLYMERASE & mRNA */}
+            {(stage === 'unwinding' || stage === 'transcribing' || stage === 'finished') && (
+              <div className="absolute left-0 top-1/2 w-full pointer-events-none">
+                {/* RNA Polymerase Blob */}
+                <div 
+                  className={`absolute transition-all duration-[2000ms] ease-in-out ${stage === 'unwinding' ? 'opacity-0 animate-fade-in' : ''}`}
+                  style={{ 
+                    // ANIMATION LOGIC:
+                    // If finished, slide far right. Otherwise, track polymeraseIndex.
+                    left: stage === 'finished' 
+                      ? `${containerLeftOffset + (fullCodingSeq.length + 3) * (scaledBaseWidth + scaledConnectorWidth)}px` 
+                      : `${containerLeftOffset + (polymeraseIndex * (scaledBaseWidth + scaledConnectorWidth))}px`,
+                    
+                    top: '50%',
+                    transform: 'translate(-25%, -10%)', // Adjusted to -10% to move lower
+                    opacity: stage === 'finished' ? 0 : 1 // Fade out on finish
+                  }}
+                >
+                  <RNAPolymerase width={polymeraseSize} height={polymeraseSize} />
+                </div>
+
+                {/* Growing mRNA Strand - Only show during transcribing/finished */}
+                {(stage === 'transcribing' || stage === 'finished') && (
+                  <div 
+                    className="absolute flex items-end transition-all duration-[2000ms] ease-in-out z-30"
+                    style={{ 
+                      // EXACTLY ALIGNED Left position
+                      left: `${containerLeftOffset}px`, 
+                      
+                      // RELEASE ANIMATION: 
+                      // If finished, move UPWARD (negative value) towards/below coding strand
+                      // Otherwise, sit at 24px*scale (attached)
+                      top: stage === 'finished' ? `${-25 * scale}px` : `${24 * scale}px` 
+                    }}
+                  >
+                    <div className="mr-2 text-pink-600 font-mono self-center font-bold text-xs animate-fade-in whitespace-nowrap flex flex-col items-end leading-tight absolute -left-20">
+                      <span>5' mRNA</span>
+                      <span className="text-[10px] opacity-75">(信使 RNA)</span>
+                    </div>
+                    {mrnaSeq.map((base, i) => (
+                      <React.Fragment key={`mrna-group-${i}`}>
+                        {i > 0 && (
+                          <Connector 
+                            orientation="up" 
+                            scale={scale} 
+                            isVisible={polymeraseIndex > i} 
+                          />
+                        )}
+                        <div key={`mrna-${i}`} className="animate-slide-up origin-bottom">
+                          <Nucleotide 
+                            base={base} 
+                            orientation="up" 
+                            type="RNA"
+                            scale={scale}
+                          />
+                        </div>
+                      </React.Fragment>
+                    ))}
+                    
+                    {/* Ghost Nucleotide */}
+                    {stage === 'transcribing' && polymeraseIndex < fullCodingSeq.length && (
+                      <>
+                        {mrnaSeq.length > 0 && <div style={{ width: scaledConnectorWidth }} />}
+                        <div className="opacity-0 translate-y-4">
+                          <Nucleotide base="?" orientation="up" scale={scale} />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+          </div>
+        </div>
+
+        {/* Finished Overlay - Moved to Right on Desktop */}
+        {stage === 'finished' && (
+          <div 
+            className="absolute top-12 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-8 md:top-20 w-11/12 max-w-md md:w-80 bg-white p-4 sm:p-6 rounded-xl border border-green-500 shadow-2xl text-center z-50 opacity-0"
+            style={{ animation: 'fade-in 0.5s ease-out 2s forwards' }}
+          >
+            <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-2" />
+            <h3 className="text-lg sm:text-xl font-bold text-green-600 mb-2">Transcription Complete! (轉錄完成!)</h3>
+            <p className="text-xs sm:text-sm text-slate-600 mb-4">
+              mRNA synthesized 5' to 3'. Note how U replaces T.<br/>
+              (mRNA 從 5' 端合成至 3' 端。請注意 U 取代了 T。)
+            </p>
+            <div className="bg-gray-100 p-3 rounded font-mono text-sm sm:text-lg tracking-widest break-all border border-gray-300 text-slate-800 mb-4">
+              <span className="text-slate-500">5'-</span>
+              {mrnaSeq.map((b, i) => (
+                <span key={i} className={`font-bold text-${b === 'U' ? 'orange' : 'slate'}-600`}>
+                  {b}
+                </span>
+              ))}
+              <span className="text-slate-500">-3'</span>
+            </div>
+            
+            <button 
+              onClick={resetSimulation}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full font-bold shadow-md transition-transform transform hover:scale-105"
+            >
+              Finish & Reset (結束並重置)
+            </button>
+          </div>
+        )}
+      </div>
+
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: #f1f5f9;
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
+        }
+        @keyframes slide-up {
+          from { transform: translateY(20px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-up {
+          animation: slide-up 0.5s ease-out forwards;
+        }
+        @keyframes fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .animate-fade-in {
+          animation: fade-in 1s ease-out forwards;
+        }
+      `}</style>
+    </div>
+  );
+};
+
+export default TranscriptionGame;
